@@ -558,9 +558,9 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: HEAD
-      resolved-ref: "367ddc7fbfefb6484d7553d9ac7e4532003a7008"
-      url: "https://github.com/zenon-network/znn_sdk_dart"
+      ref: acdac5e1eea7a517dfcd71802e374e7402ab99cb
+      resolved-ref: acdac5e1eea7a517dfcd71802e374e7402ab99cb
+      url: "https://github.com/sol-sanctum/znn_sdk_dart.git"
     source: git
     version: "0.0.4"
 sdks:

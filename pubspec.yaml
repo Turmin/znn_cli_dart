@@ -10,8 +10,8 @@ dependencies:
   dcli: ^1.7.1
   znn_sdk_dart:
     git:
-      url: https://github.com/zenon-network/znn_sdk_dart.git
-      ref: 367ddc7fbfefb6484d7553d9ac7e4532003a7008 # v0.0.4
+      url: https://github.com/sol-sanctum/znn_sdk_dart.git
+      ref: acdac5e1eea7a517dfcd71802e374e7402ab99cb # spork_htlc
 
 dev_dependencies:
   test: ^1.17.9

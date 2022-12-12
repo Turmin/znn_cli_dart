@@ -31,6 +31,7 @@ void help() {
   print('    unconfirmed');
   print('    balance');
   print('    frontierMomentum');
+  print('    createHash "string" [hashType]');
   print('    version');
   print('  Plasma');
   print('    plasma.list [pageIndex pageCount]');
@@ -75,6 +76,21 @@ void help() {
   print('    wallet.dumpMnemonic');
   print('    wallet.deriveAddresses start end');
   print('    wallet.export filePath');
+  print('  Spork');
+  print('    spork.list');
+  print('    spork.create name description');
+  print('    spork.activate id');
+  print('  HTLC');
+  print('    htlc.create hashLockedAddress tokenStandard amount expirationTime preimage [hashType]');
+  print('    htlc.unlock id [preimage hashType]');
+  print('    htlc.reclaim id');
+  print('    htlc.reclaimAll');
+  print('    htlc.get id');
+  print('    htlc.hashLocked address [pageIndex pageSize]');
+  print('    htlc.timeLocked address [pageIndex pageSize]');
+  //print('    htlc.inspect    // Inspect htlc received account-block');
+  //print('    htlc.monitor    // Monitor htlc by id.');
+  //print('    htlc.monitorAll // Monitor all htlc\'s.');
 }
 
 Future<int> initZnn(List<String> args, Function handler) async {
@@ -158,6 +174,15 @@ Future<int> initZnn(List<String> args, Function handler) async {
     'wallet.dumpMnemonic',
     'wallet.deriveAddresses',
     'wallet.export',
+    'spork.create',
+    'spork.activate',
+    'htlc.create',
+    'htlc.reclaim',
+    'htlc.reclaimAll',
+    'htlc.unlock',
+    'htlc.inspect',    // WIP - Inspect htlc received account-block
+    'htlc.monitor',    // WIP - Monitor htlc by id.
+    'htlc.monitorAll', // WIP - Monitor all htlc's.
   ];
 
   List<String> commandsWithoutKeyStore = [
@@ -170,6 +195,11 @@ Future<int> initZnn(List<String> args, Function handler) async {
     'wallet.createNew',
     'wallet.createFromMnemonic',
     'wallet.list',
+    'spork.list',
+    'createHash',
+    'htlc.get',
+    'htlc.timeLocked',
+    'htlc.hashLocked',
   ];
 
   List<String> commandsWithoutConnection = [
@@ -179,6 +209,7 @@ Future<int> initZnn(List<String> args, Function handler) async {
     'wallet.list',
     'wallet.dumpMnemonic',
     'wallet.deriveAddresses',
+    'createHash',
   ];
 
   if (!(commandsWithoutKeyStore.contains(args[0]) ||
@@ -270,6 +301,9 @@ Future<int> initZnn(List<String> args, Function handler) async {
     }
 
     await znnClient.wsClient.initialize(_urlOption!, retry: false);
+    await znnClient.ledger.getFrontierMomentum().then((value) {
+      netId = value.chainIdentifier.toInt();
+    });
   }
 
   await handler(args);
