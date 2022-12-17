@@ -1,6 +1,6 @@
 name: znn_cli_dart
 description: Zenon CLI tool
-version: 0.0.4
+version: 0.0.5
 publish_to: none
 
 environment:
@@ -8,10 +8,11 @@ environment:
 
 dependencies:
   dcli: ^1.7.1
+  random_string_generator: ^2.0.0
   znn_sdk_dart:
     git:
       url: https://github.com/sol-sanctum/znn_sdk_dart.git
-      ref: acdac5e1eea7a517dfcd71802e374e7402ab99cb # spork_htlc
+      ref: spork_htlc
 
 dev_dependencies:
   test: ^1.17.9

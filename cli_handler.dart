@@ -5,7 +5,10 @@ import 'dart:io';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:dcli/dcli.dart';
 import 'package:path/path.dart' as path;
+import 'package:random_string_generator/random_string_generator.dart';
+import 'package:collection/collection.dart';
 import 'package:znn_sdk_dart/znn_sdk_dart.dart';
+import 'package:znn_sdk_dart/src/abi/abi.dart';
 
 import 'init_znn.dart';
 
@@ -1228,19 +1231,29 @@ Future<void> handleCli(List<String> args) async {
       break;
 
     case 'createHash':
-      if (args.length != 2 && args.length != 3) {
+      if (args.length > 2) {
         print('Incorrect number of arguments. Expected:');
-        print('createHash "string" [hashType]');
+        print('createHash [hashType]');
         break;
       }
 
-      Hash hash;
+      late Hash hash;
       int hashType;
-      String input = args[1];
+      late String preimage;
 
-      if (args.length == 3) {
+      var generator = RandomStringGenerator(
+        minLength: 20,
+        maxLength: 30,
+        hasAlpha: true,
+        hasDigits: true,
+        hasSymbols: false,
+        alphaCase: AlphaCase.MIXED_CASE,
+      );
+      preimage = generator.generate();
+
+      if (args.length == 2) {
         try {
-          hashType = args[2].toNum().toInt();
+          hashType = args[1].toNum().toInt();
         } catch (e) {
           print('${red("Error!")} hash type must be an integer.');
           print('Supported hash types:');
@@ -1254,25 +1267,26 @@ Future<void> handleCli(List<String> args) async {
 
       switch (hashType) {
         case 0:
-          hash = Hash.digest(utf8.encode(input));
-          print('Hash: ${hash}');
+          hash = Hash.digest(utf8.encode(preimage));
           break;
         case 1:
-          hash = Hash.fromBytes(await Crypto.sha256Bytes(utf8.encode(input)));
-          print('Hash: ${hash}');
+          hash =
+              Hash.fromBytes(await Crypto.sha256Bytes(utf8.encode(preimage)));
           break;
         default:
           print(
               '${red("Error!")} Invalid hash type. Value ${hashType} not supported.');
           break;
       }
+      print('Preimage: ${preimage}');
+      print('Hash: ${hash}');
       break;
 
     case 'htlc.create':
-      if (args.length != 6 && args.length != 7) {
+      if (args.length < 5 || args.length > 7) {
         print('Incorrect number of arguments. Expected:');
         print(
-            'htlc.create hashLockedAddress tokenStandard amount expirationTime preimage [hashType]');
+            'htlc.create hashLockedAddress tokenStandard amount expirationTime [hashLock hashType]');
         break;
       }
 
@@ -1280,10 +1294,10 @@ Future<void> handleCli(List<String> args) async {
       TokenStandard tokenStandard;
       int amount;
       int expirationTime;
-      String preimage = args[5];
       late Hash hashLock;
       int hashLockLength = 32;
       int hashType;
+      late String preimage;
 
       try {
         hashLockedAddress = Address.parse(args[1]);
@@ -1315,7 +1329,7 @@ Future<void> handleCli(List<String> args) async {
         break;
       }
 
-      if (amount < htlcMinAmount) {
+      if (amount <= 0) {
         print('${red("Error!")} amount must be greater than 0');
         break;
       }
@@ -1360,26 +1374,44 @@ Future<void> handleCli(List<String> args) async {
         hashType = 0;
       }
 
-      switch (hashType) {
-        case 0:
-          hashLock = Hash.digest(utf8.encode(preimage));
+      if (args.length >= 6) {
+        try {
+          hashLock = Hash.parse(args[5]);
+        } catch (e) {
+          print('${red("Error!")} hashLock is not a valid hash');
           break;
-        case 1:
-          hashLock =
-              Hash.fromBytes(await Crypto.sha256Bytes(utf8.encode(preimage)));
-          break;
-        default:
-          print(
-              '${red("Error!")} Invalid hash type. Value ${hashType} not supported.');
-          ok = false;
-          break;
+        }
+      } else {
+        var generator = RandomStringGenerator(
+          minLength: 20,
+          maxLength: 30,
+          hasAlpha: true,
+          hasDigits: true,
+          hasSymbols: false,
+          alphaCase: AlphaCase.MIXED_CASE,
+        );
+        preimage = generator.generate();
+        switch (hashType) {
+          case 0:
+            hashLock = Hash.digest(utf8.encode(preimage));
+            break;
+          case 1:
+            hashLock =
+                Hash.fromBytes(await Crypto.sha256Bytes(utf8.encode(preimage)));
+            break;
+          default:
+            print(
+                '${red("Error!")} Invalid hash type. Value ${hashType} not supported.');
+            ok = false;
+            break;
+        }
+        if (!ok) break;
       }
-      if (!ok) break;
 
       try {
         expirationTime = args[4].toNum().toInt();
       } catch (e) {
-        print('${red("Error!")} hash type must be an integer.');
+        print('${red("Error!")} expirationTime must be an integer.');
         break;
       }
 
@@ -1390,22 +1422,19 @@ Future<void> handleCli(List<String> args) async {
         break;
       }
 
-      if (hashLockLength < htlcPreimageMinLength ||
-          hashLockLength > htlcPreimageMaxLength) {
-        print(
-            '${red("Error!")} hashLock must be ${htlcPreimageMaxLength} characters.');
-        break;
-      }
-
       final duration = Duration(seconds: expirationTime);
       format(Duration d) => d.toString().split('.').first.padLeft(8, "0");
       int currentTime =
           ((DateTime.now().millisecondsSinceEpoch) / 1000).floor();
-      print(currentTime);
       expirationTime += currentTime;
 
-      print(
-          'Creating htlc with amount ${formatAmount(amount, token!.decimals)} ${token.symbol}');
+      if (args.length >= 6) {
+        print(
+            'Creating htlc with amount ${formatAmount(amount, token!.decimals)} ${token.symbol}');
+      } else {
+        print(
+            'Creating htlc with amount ${formatAmount(amount, token!.decimals)} ${token.symbol} using preimage ${green(preimage)}');
+      }
       print('  Can be reclaimed in ${format(duration)} by ${address}');
       print(
           '  Can be unlocked by ${hashLockedAddress} with hashlock ${hashLock} hashtype ${hashType}');
@@ -1795,11 +1824,157 @@ Future<void> handleCli(List<String> args) async {
         }
       } else {
         print("No time locked htlc entries found");
+        break;
       }
 
-      print('Done');
-      print(
-          'Use receiveAll to collect your ${count} htlc transactions after 2 momentums');
+      if (count != 0) {
+        print('Done');
+        print(
+            'Use receiveAll to collect your ${count} htlc amount(s) after 2 momentums');
+      } else {
+        print('No expired htlc\'s were found.');
+      }
+      break;
+
+    case ('htlc.monitor'):
+      if (args.length != 2) {
+        print('Incorrect number of arguments. Expected:');
+        print('htlc.monitor id');
+        break;
+      }
+
+      Hash id;
+      var htlc;
+
+      try {
+        id = Hash.parse(args[1]);
+      } catch (e) {
+        print('${red("Error!")} id is not a valid hash');
+        break;
+      }
+
+      try {
+        htlc = await znnClient.embedded.htlc.getHtlcInfoById(id);
+      } catch (e) {
+        print("The htlc id ${id} does not exist");
+        break;
+      }
+      List<HtlcInfo> htlcs = [];
+      htlcs.add(htlc);
+
+      while (await monitorAsync(znnClient, address!, htlcs) != true) {
+        await Future.delayed(Duration(seconds: 10));
+      }
+      break;
+
+    case ('htlc.monitorAll'):
+      if (args.length != 1) {
+        print('Incorrect number of arguments. Expected:');
+        print('htlc.monitorAll');
+        break;
+      }
+
+      int pageIndex = 0;
+      int pageSize = rpcMaxPageSize;
+      List<HtlcInfo> htlcs = [];
+
+      HtlcInfoList timeLockedHtlcs = await znnClient.embedded.htlc
+          .getHtlcInfosByTimeLockedAddress(address!,
+              pageIndex: pageIndex, pageSize: pageSize);
+
+      HtlcInfoList hashLockedHtlcs = await znnClient.embedded.htlc
+          .getHtlcInfosByHashLockedAddress(address,
+              pageIndex: pageIndex, pageSize: pageSize);
+
+      if (timeLockedHtlcs.list.isEmpty && hashLockedHtlcs.list.isEmpty) {
+        print("There are no htlc's to monitor for ${address}");
+      } else {
+        timeLockedHtlcs.list.forEach((htlc) {
+          htlcs.add(htlc);
+        });
+        hashLockedHtlcs.list.forEach((htlc) {
+          htlcs.add(htlc);
+        });
+        while (await monitorAsync(znnClient, address, htlcs) != true) {
+          await Future.delayed(Duration(seconds: 10));
+        }
+      }
+      break;
+
+    case ('htlc.inspect'):
+      if (args.length != 2) {
+        print('Incorrect number of arguments. Expected:');
+        print('htlc.inspect blockHash');
+        break;
+      }
+
+      Hash blockHash = Hash.parse(args[1]);
+      var block = await znnClient.ledger.getAccountBlockByHash(blockHash);
+
+      if (block == null) {
+        print("The account block ${blockHash.toString()} does not exist");
+        break;
+      }
+
+      if (block.pairedAccountBlock == null ||
+          block.blockType != BlockTypeEnum.userSend.index) {
+        print("The account block was not sent by a user");
+        break;
+      }
+
+      Function eq = const ListEquality().equals;
+      late AbiFunction f;
+      for (var entry in Definitions.htlc.entries) {
+        if (eq(AbiFunction.extractSignature(entry.encodeSignature()),
+            AbiFunction.extractSignature(block.data))) {
+          f = AbiFunction(entry.name!, entry.inputs!);
+        }
+      }
+
+      if (f.name == null) {
+        print("The account block contains invalid data");
+        break;
+      }
+
+      var txArgs = f.decode(block.data);
+      if (f.name.toString() == "UnlockHtlc") {
+        if (txArgs.length != 2) {
+          print("The account block has an invalid unlock argument length");
+          break;
+        }
+        String preimage = utf8.decode(txArgs[1]);
+        print(
+            "Unlock htlc: id ${cyan(txArgs[0].toString())} unlocked by ${block.address} with pre-image: ${green(preimage)}");
+      } else if (f.name.toString() == "ReclaimHtlc") {
+        if (txArgs.length != 1) {
+          print("The account block has an invalid reclaim argument length");
+          break;
+        }
+        print(
+            "Reclaim htlc: id ${red(txArgs[0].toString())} reclaimed by ${block.address}");
+      } else if (f.name.toString() == "CreateHtlc") {
+        if (txArgs.length != 5) {
+          print("The account block has an invalid create argument length");
+          break;
+        }
+
+        var hashLocked = txArgs[0];
+        var expirationTime = txArgs[1];
+        var hashLock = Hash.fromBytes(txArgs[4]);
+        var amount = block.amount;
+        var token = block.token;
+        var hashType = txArgs[2].toString();
+        var keyMaxSize = txArgs[3].toString();
+        print("Create htlc: ${hashLocked.toString()} "
+            "${formatAmount(amount, token!.decimals)} "
+            "${token.symbol} ${expirationTime} "
+            "${hashType} "
+            "${keyMaxSize} "
+            "${hashLock.toString()} "
+            "created by ${block.address}");
+      } else {
+        print("The account block contains an unknown function call");
+      }
       break;
 
     default:
@@ -1808,4 +1983,199 @@ Future<void> handleCli(List<String> args) async {
       break;
   }
   return;
+}
+
+Future<bool> monitorAsync(
+    Zenon znnClient, Address address, List<HtlcInfo> htlcs,
+    {bool unlock = true}) async {
+  for (var htlc in htlcs) {
+    print("Monitoring htlc id ${htlc.id}");
+  }
+
+  // Thread 1: append new htlc contract interactions to queue
+  List<Hash> queue = [];
+  znnClient.wsClient.addOnConnectionEstablishedCallback((broadcaster) async {
+    print("Subscribing for htlc-contract events...");
+
+    try {
+      await znnClient.subscribe.toAllAccountBlocks();
+    } catch (e) {
+      print(e);
+    }
+
+    // Extract hashes for all new tx that interact with the htlc contract
+    broadcaster.listen((json) async {
+      if (json!["method"] == "ledger.subscription") {
+        for (var i = 0; i < json["params"]["result"].length; i += 1) {
+          var tx = json["params"]["result"][i];
+          if (tx["toAddress"] != htlcAddress.toString()) {
+            continue;
+          } else {
+            var hash = tx["hash"];
+            queue.add(Hash.parse(hash));
+            print("Receiving transaction with hash ${orange(hash)}");
+          }
+        }
+      }
+    });
+  });
+
+  List<HtlcInfo> waitingToBeReclaimed = [];
+
+  // Thread 2: if any tx in queue matches monitored htlc, remove it from queue
+  for (;;) {
+    if (htlcs.isEmpty && waitingToBeReclaimed.isEmpty) {
+      break;
+    }
+    var currentTime = (DateTime.now().millisecondsSinceEpoch / 1000).round();
+    List<HtlcInfo> _htlcs = htlcs.toList();
+
+    for (var htlc in _htlcs) {
+      // Reclaim any expired timeLocked htlc that is being monitored
+      if (htlc.expirationTime <= currentTime) {
+        print("Htlc id ${red(htlc.id.toString())} expired");
+
+        if (htlc.timeLocked == address) {
+          try {
+            await znnClient.send(znnClient.embedded.htlc.reclaim(htlc.id));
+            print('  Reclaiming htlc id ${red(htlc.id.toString())} now... ');
+            htlcs.remove(htlc);
+          } catch (e) {
+            print('  Error occurred when reclaiming ${htlc.id}');
+          }
+        } else {
+          print('  Waiting for ${htlc.timeLocked} to reclaim...');
+          waitingToBeReclaimed.add(htlc);
+          htlcs.remove(htlc);
+        }
+      }
+
+      List<HtlcInfo> _waitingToBeReclaimed = waitingToBeReclaimed.toList();
+      List<Hash> _queue = queue.toList();
+
+      if (queue.isNotEmpty) {
+        for (var hash in _queue) {
+          // Identify if htlc tx are either UnlockHtlc or ReclaimHtlc
+          var block = await znnClient.ledger.getAccountBlockByHash(hash);
+
+          if (block?.blockType != BlockTypeEnum.userSend.index) {
+            continue;
+          }
+
+          if (block?.pairedAccountBlock == null ||
+              block?.pairedAccountBlock?.blockType !=
+                  BlockTypeEnum.contractReceive.index) {
+            continue;
+          }
+
+          if ((block?.pairedAccountBlock?.descendantBlocks)!.isEmpty) {
+            continue;
+          }
+
+          Function eq = const ListEquality().equals;
+          late AbiFunction f;
+          for (var entry in Definitions.htlc.entries) {
+            if (eq(AbiFunction.extractSignature(entry.encodeSignature()),
+                AbiFunction.extractSignature((block?.data)!))) {
+              f = AbiFunction(entry.name!, entry.inputs!);
+            }
+          }
+
+          if (f.name == null) {
+            continue;
+          }
+
+          // If UnlockHtlc, display preimage and if unlock = true,
+          // unlock any associated htlc that are hashLocked to current address
+          for (var htlc in _htlcs) {
+            if (f.name.toString() == "UnlockHtlc") {
+              if (block?.address != htlc.hashLocked) {
+                continue;
+              }
+
+              var args = f.decode((block?.data)!);
+
+              if (args.length != 2) {
+                continue;
+              }
+
+              if (args[0].toString() != htlc.id.toString()) {
+                continue;
+              }
+
+              late String preimage;
+              if ((block?.pairedAccountBlock?.descendantBlocks)!.any((x) =>
+                  x.blockType == BlockTypeEnum.contractSend.index &&
+                  x.toAddress == htlc.hashLocked &&
+                  x.tokenStandard == htlc.tokenStandard &&
+                  x.amount == htlc.amount)) {
+                preimage = utf8.decode(args[1]);
+                print(
+                    "htlc id ${cyan(htlc.id.toString())} unlocked with pre-image: ${green(preimage)}");
+
+                if (unlock) {
+                  var unlockedHashLock = htlc.hashLock;
+                  HtlcInfoList hashLockedHtlcs = await znnClient.embedded.htlc
+                      .getHtlcInfosByHashLockedAddress(address,
+                          pageIndex: 0, pageSize: rpcMaxPageSize);
+
+                  if (hashLockedHtlcs.list.isNotEmpty) {
+                    await Future.wait(
+                        hashLockedHtlcs.list.map((var lockedHtlc) async {
+                      if (eq(lockedHtlc.hashLock, unlockedHashLock)) {
+                        await znnClient.embedded.token
+                            .getByZts(lockedHtlc.tokenStandard)
+                            .then((token) => print(
+                                'Unlocking htlc id ${green(lockedHtlc.id.toString())} with amount ${formatAmount(lockedHtlc.amount, token!.decimals)} ${token.symbol}'));
+
+                        await znnClient.send(znnClient.embedded.htlc
+                            .unlock(lockedHtlc.id, preimage.codeUnits));
+                      }
+                    }));
+                  }
+                }
+                htlcs.remove(htlc);
+              }
+            }
+          }
+
+          // If ReclaimHtlc, inform user that a monitored, expired htlc
+          // and has been reclaimed by the timeLocked address
+          for (var htlc in _waitingToBeReclaimed) {
+            if (f.name.toString() == "ReclaimHtlc") {
+              if (block?.address != htlc.timeLocked) {
+                continue;
+              }
+
+              var args = f.decode((block?.data)!);
+
+              if (args.length != 1) {
+                continue;
+              }
+
+              if (args[0].toString() != htlc.id.toString()) {
+                continue;
+              }
+
+              if ((block?.pairedAccountBlock?.descendantBlocks)!.any((x) =>
+                  x.blockType == BlockTypeEnum.contractSend.index &&
+                  x.toAddress == htlc.timeLocked &&
+                  x.tokenStandard == htlc.tokenStandard &&
+                  x.amount == htlc.amount)) {
+                print(
+                    "htlc id ${red(htlc.id.toString())} reclaimed by ${htlc.timeLocked}");
+                waitingToBeReclaimed.remove(htlc);
+              } else {
+                print((block?.pairedAccountBlock?.descendantBlocks)!);
+              }
+            }
+          }
+          queue.remove(hash);
+        }
+      }
+      await Future.delayed(Duration(seconds: 1));
+    }
+  }
+  print("No longer monitoring any htlc's");
+  return true;
 }

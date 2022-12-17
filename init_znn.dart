@@ -10,7 +10,7 @@ import 'package:znn_sdk_dart/znn_sdk_dart.dart';
 
 const znnDaemon = 'znnd';
 const znnCli = 'znn-cli';
-const znnCliVersion = '0.0.4';
+const znnCliVersion = '0.0.5';
 
 String _argsUsage = '';
 
@@ -81,16 +81,16 @@ void help() {
   print('    spork.create name description');
   print('    spork.activate id');
   print('  HTLC');
-  print('    htlc.create hashLockedAddress tokenStandard amount expirationTime preimage [hashType]');
+  print('    htlc.create hashLockedAddress tokenStandard amount expirationTime [hashLock hashType]');
   print('    htlc.unlock id [preimage hashType]');
   print('    htlc.reclaim id');
   print('    htlc.reclaimAll');
   print('    htlc.get id');
   print('    htlc.hashLocked address [pageIndex pageSize]');
   print('    htlc.timeLocked address [pageIndex pageSize]');
-  //print('    htlc.inspect    // Inspect htlc received account-block');
-  //print('    htlc.monitor    // Monitor htlc by id.');
-  //print('    htlc.monitorAll // Monitor all htlc\'s.');
+  print('    htlc.inspect blockHash');
+  print('    htlc.monitor id');
+  print('    htlc.monitorAll');
 }
 
 Future<int> initZnn(List<String> args, Function handler) async {
@@ -180,9 +180,8 @@ Future<int> initZnn(List<String> args, Function handler) async {
     'htlc.reclaim',
     'htlc.reclaimAll',
     'htlc.unlock',
-    'htlc.inspect',    // WIP - Inspect htlc received account-block
-    'htlc.monitor',    // WIP - Monitor htlc by id.
-    'htlc.monitorAll', // WIP - Monitor all htlc's.
+    'htlc.monitor',
+    'htlc.monitorAll',
   ];
 
   List<String> commandsWithoutKeyStore = [
@@ -200,6 +199,7 @@ Future<int> initZnn(List<String> args, Function handler) async {
     'htlc.get',
     'htlc.timeLocked',
     'htlc.hashLocked',
+    'htlc.inspect',
   ];
 
   List<String> commandsWithoutConnection = [
