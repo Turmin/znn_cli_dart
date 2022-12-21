@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:bip39/bip39.dart' as bip39;
+import 'package:convert/convert.dart';
 import 'package:dcli/dcli.dart';
 import 'package:path/path.dart' as path;
-import 'package:random_string_generator/random_string_generator.dart';
 import 'package:collection/collection.dart';
 import 'package:znn_sdk_dart/znn_sdk_dart.dart';
 import 'package:znn_sdk_dart/src/abi/abi.dart';
@@ -1237,23 +1238,18 @@ Future<void> handleCli(List<String> args) async {
         break;
       }
 
-      late Hash hash;
-      int hashType;
-      late String preimage;
-
-      var generator = RandomStringGenerator(
-        minLength: 20,
-        maxLength: 30,
-        hasAlpha: true,
-        hasDigits: true,
-        hasSymbols: false,
-        alphaCase: AlphaCase.MIXED_CASE,
-      );
-      preimage = generator.generate();
+      Hash hash;
+      int hashType = 0;
+      final preimage = generatePreimage();
 
       if (args.length == 2) {
         try {
           hashType = args[1].toNum().toInt();
+          if (hashType > 1) {
+            print(
+                '${red("Error!")} Invalid hash type. Value $hashType not supported.');
+            break;
+          }
         } catch (e) {
           print('${red("Error!")} hash type must be an integer.');
           print('Supported hash types:');
@@ -1261,25 +1257,19 @@ Future<void> handleCli(List<String> args) async {
           print('  1: SHA2-256');
           break;
         }
-      } else {
-        hashType = 0;
       }
 
       switch (hashType) {
-        case 0:
-          hash = Hash.digest(utf8.encode(preimage));
-          break;
         case 1:
-          hash =
-              Hash.fromBytes(await Crypto.sha256Bytes(utf8.encode(preimage)));
+          hash = Hash.fromBytes(await Crypto.sha256Bytes(preimage));
           break;
         default:
-          print(
-              '${red("Error!")} Invalid hash type. Value ${hashType} not supported.');
+          hash = Hash.digest(preimage);
           break;
       }
-      print('Preimage: ${preimage}');
-      print('Hash: ${hash}');
+
+      print('Preimage: ${hex.encode(preimage)}');
+      print('Hash: $hash');
       break;
 
     case 'htlc.create':
@@ -1296,8 +1286,8 @@ Future<void> handleCli(List<String> args) async {
       int expirationTime;
       late Hash hashLock;
       int hashLockLength = 32;
-      int hashType;
-      late String preimage;
+      int hashType = 0;
+      late List<int> preimage;
 
       try {
         hashLockedAddress = Address.parse(args[1]);
@@ -1370,8 +1360,6 @@ Future<void> handleCli(List<String> args) async {
           print('  1: SHA2-256');
           break;
         }
-      } else {
-        hashType = 0;
       }
 
       if (args.length >= 6) {
@@ -1382,22 +1370,13 @@ Future<void> handleCli(List<String> args) async {
           break;
         }
       } else {
-        var generator = RandomStringGenerator(
-          minLength: 20,
-          maxLength: 30,
-          hasAlpha: true,
-          hasDigits: true,
-          hasSymbols: false,
-          alphaCase: AlphaCase.MIXED_CASE,
-        );
-        preimage = generator.generate();
+        preimage = generatePreimage();
         switch (hashType) {
           case 0:
-            hashLock = Hash.digest(utf8.encode(preimage));
+            hashLock = Hash.digest(preimage);
             break;
           case 1:
-            hashLock =
-                Hash.fromBytes(await Crypto.sha256Bytes(utf8.encode(preimage)));
+            hashLock = Hash.fromBytes(await Crypto.sha256Bytes(preimage));
             break;
           default:
             print(
@@ -1433,7 +1412,7 @@ Future<void> handleCli(List<String> args) async {
             'Creating htlc with amount ${formatAmount(amount, token!.decimals)} ${token.symbol}');
       } else {
         print(
-            'Creating htlc with amount ${formatAmount(amount, token!.decimals)} ${token.symbol} using preimage ${green(preimage)}');
+            'Creating htlc with amount ${formatAmount(amount, token!.decimals)} ${token.symbol} using preimage ${green(hex.encode(preimage))}');
       }
       print('  Can be reclaimed in ${format(duration)} by ${address}');
       print(
@@ -1513,12 +1492,12 @@ Future<void> handleCli(List<String> args) async {
                   'Htlc id ${htlc.id} with amount ${formatAmount(htlc.amount, token!.decimals)} ${token.symbol}'));
           if (htlc.expirationTime > currentTime) {
             print(
+                '   Can be unlocked by ${htlc.hashLocked} with hashlock ${Hash.fromBytes(htlc.hashLock!)} hashtype ${htlc.hashType}');
+            print(
                 '   Can be reclaimed in ${format(Duration(seconds: htlc.expirationTime - currentTime))} by ${htlc.hashLocked}');
           } else {
             print('   Can be reclaimed now by ${htlc.timeLocked}');
           }
-          print(
-              '   Can be unlocked by ${htlc.hashLocked} with hashlock ${Hash.fromBytes(htlc.hashLock!)} hashtype ${htlc.hashType}');
         }));
       } else {
         print("No time locked htlc entries found");
@@ -1589,12 +1568,12 @@ Future<void> handleCli(List<String> args) async {
                   'Htlc id ${htlc.id} with amount ${formatAmount(htlc.amount, token!.decimals)} ${token.symbol}'));
           if (htlc.expirationTime > currentTime) {
             print(
+                '   Can be unlocked by ${htlc.hashLocked} with hashlock ${Hash.fromBytes(htlc.hashLock!)} hashtype ${htlc.hashType}');
+            print(
                 '   Can be reclaimed in ${format(Duration(seconds: htlc.expirationTime - currentTime))} by ${htlc.timeLocked}');
           } else {
             print('   Can be reclaimed now by ${htlc.timeLocked}');
           }
-          print(
-              '   Can be unlocked by ${htlc.hashLocked} with hashlock ${Hash.fromBytes(htlc.hashLock!)} hashtype ${htlc.hashType}');
         }));
       } else {
         print("No hash locked htlc entries found");
@@ -1622,7 +1601,7 @@ Future<void> handleCli(List<String> args) async {
         break;
       }
 
-      var htlc;
+      HtlcInfo htlc;
       try {
         htlc = await znnClient.embedded.htlc.getHtlcInfoById(id);
       } catch (e) {
@@ -1636,12 +1615,12 @@ Future<void> handleCli(List<String> args) async {
                 'Htlc id ${htlc.id} with amount ${formatAmount(htlc.amount, token!.decimals)} ${token.symbol}'));
         if (htlc.expirationTime > currentTime) {
           print(
+              '   Can be unlocked by ${htlc.hashLocked} with hashlock ${Hash.fromBytes(htlc.hashLock!)} hashtype ${htlc.hashType}');
+          print(
               '   Can be reclaimed in ${format(Duration(seconds: htlc.expirationTime - currentTime))} by ${htlc.timeLocked}');
         } else {
           print('   Can be reclaimed now by ${htlc.timeLocked}');
         }
-        print(
-            '   Can be unlocked by ${htlc.hashLocked} with hashlock ${Hash.fromBytes(htlc.hashLock!)} hashtype ${htlc.hashType}');
       }
 
       print('Done');
@@ -1655,9 +1634,9 @@ Future<void> handleCli(List<String> args) async {
       }
 
       Hash id;
-      late String preimage;
+      String preimage = "";
       late Hash preimageCheck;
-      int hashType;
+      int hashType = 0;
       late String hashTypeInput;
       int currentTime =
           ((DateTime.now().millisecondsSinceEpoch) / 1000).floor();
@@ -1669,7 +1648,7 @@ Future<void> handleCli(List<String> args) async {
         break;
       }
 
-      late var htlc;
+      HtlcInfo htlc;
       try {
         htlc = await znnClient.embedded.htlc.getHtlcInfoById(id);
       } catch (e) {
@@ -1705,6 +1684,11 @@ Future<void> handleCli(List<String> args) async {
 
       try {
         hashType = hashTypeInput.toNum().toInt();
+        if (hashType > 1) {
+          print(
+              '${red("Error!")} Invalid hash type. Value $hashType not supported.');
+          break;
+        }
       } catch (e) {
         print('${red("Error!")} hash type must be an integer.');
         print('Supported hash types:');
@@ -1718,24 +1702,17 @@ Future<void> handleCli(List<String> args) async {
         break;
       }
 
-      var ok = true;
       switch (hashType) {
-        case 0:
-          preimageCheck = (Hash.digest(utf8.encode(preimage)));
-          break;
         case 1:
           preimageCheck =
-              Hash.fromBytes(await Crypto.sha256Bytes(utf8.encode(preimage)));
+              Hash.fromBytes(await Crypto.sha256Bytes(hex.decode(preimage)));
           break;
         default:
-          print(
-              '${red("Error!")} Invalid hash type. Value ${hashType} not supported.');
-          ok = false;
+          preimageCheck = (Hash.digest(hex.decode(preimage)));
           break;
       }
-      if (!ok) break;
 
-      if (preimageCheck != Hash.fromBytes(htlc.hashLock)) {
+      if (preimageCheck != Hash.fromBytes(htlc.hashLock!)) {
         print('${red('Error!')} preimage does not match the hashlock');
         break;
       }
@@ -1745,7 +1722,7 @@ Future<void> handleCli(List<String> args) async {
               'Unlocking htlc id ${htlc.id} with amount ${formatAmount(htlc.amount, token!.decimals)} ${token.symbol}'));
 
       await znnClient
-          .send(znnClient.embedded.htlc.unlock(id, preimage.codeUnits));
+          .send(znnClient.embedded.htlc.unlock(id, hex.decode(preimage)));
       print('Done');
       print('Use receiveAll to collect your htlc amount after 2 momentums');
       break;
@@ -1768,7 +1745,7 @@ Future<void> handleCli(List<String> args) async {
         break;
       }
 
-      late var htlc;
+      HtlcInfo htlc;
       try {
         htlc = await znnClient.embedded.htlc.getHtlcInfoById(id);
       } catch (e) {
@@ -1942,7 +1919,7 @@ Future<void> handleCli(List<String> args) async {
           print("The account block has an invalid unlock argument length");
           break;
         }
-        String preimage = utf8.decode(txArgs[1]);
+        String preimage = hex.encode(txArgs[1]);
         print(
             "Unlock htlc: id ${cyan(txArgs[0].toString())} unlocked by ${block.address} with pre-image: ${green(preimage)}");
       } else if (f.name.toString() == "ReclaimHtlc") {
@@ -2103,13 +2080,12 @@ Future<bool> monitorAsync(
                 continue;
               }
 
-              late String preimage;
               if ((block?.pairedAccountBlock?.descendantBlocks)!.any((x) =>
                   x.blockType == BlockTypeEnum.contractSend.index &&
                   x.toAddress == htlc.hashLocked &&
                   x.tokenStandard == htlc.tokenStandard &&
                   x.amount == htlc.amount)) {
-                preimage = utf8.decode(args[1]);
+                final preimage = hex.encode(args[1]);
                 print(
                     "htlc id ${cyan(htlc.id.toString())} unlocked with pre-image: ${green(preimage)}");
 
@@ -2178,4 +2154,10 @@ Future<bool> monitorAsync(
   }
   print("No longer monitoring any htlc's");
   return true;
+}
+
+List<int> generatePreimage() {
+  const length = 32;
+  const maxInt = 256;
+  return List<int>.generate(length, (i) => Random.secure().nextInt(maxInt));
 }
