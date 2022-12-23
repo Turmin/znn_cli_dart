@@ -1403,8 +1403,8 @@ Future<void> handleCli(List<String> args) async {
 
       final duration = Duration(seconds: expirationTime);
       format(Duration d) => d.toString().split('.').first.padLeft(8, "0");
-      int currentTime =
-          ((DateTime.now().millisecondsSinceEpoch) / 1000).floor();
+      Momentum currentFrontierMomentum = await znnClient.ledger.getFrontierMomentum();
+      int currentTime = currentFrontierMomentum.timestamp;
       expirationTime += currentTime;
 
       if (args.length >= 6) {
