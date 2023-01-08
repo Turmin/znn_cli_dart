@@ -1232,17 +1232,18 @@ Future<void> handleCli(List<String> args) async {
       break;
 
     case 'createHash':
-      if (args.length > 2) {
+      if (args.length > 3) {
         print('Incorrect number of arguments. Expected:');
-        print('createHash [hashType]');
+        print('createHash [hashType keyMaxSize]');
         break;
       }
 
       Hash hash;
       int hashType = 0;
-      final preimage = generatePreimage();
+      final List<int> preimage;
+      int keyMaxSize = htlcPreimageMinLength;
 
-      if (args.length == 2) {
+      if (args.length >= 2) {
         try {
           hashType = args[1].toNum().toInt();
           if (hashType > 1) {
@@ -1259,17 +1260,33 @@ Future<void> handleCli(List<String> args) async {
         }
       }
 
+      if (args.length == 3) {
+        try {
+          keyMaxSize = args[2].toNum().toInt();
+        } catch (e) {
+          print('${red("Error!")} keyMaxSize must be an integer.');
+          break;
+        }
+      }
+
+      if (keyMaxSize > htlcPreimageMaxLength && keyMaxSize < 1) {
+        print(
+            '${red("Error!")} Invalid keyMaxSize. Preimage must be $htlcPreimageMaxLength bytes or less.');
+        break;
+      }
+      preimage = generatePreimage(keyMaxSize);
+      print('Preimage: ${hex.encode(preimage)}');
+
       switch (hashType) {
         case 1:
           hash = Hash.fromBytes(await Crypto.sha256Bytes(preimage));
+          print('SHA-256 Hash: $hash');
           break;
         default:
           hash = Hash.digest(preimage);
+          print('SHA-3 Hash: $hash');
           break;
       }
-
-      print('Preimage: ${hex.encode(preimage)}');
-      print('Hash: $hash');
       break;
 
     case 'htlc.create':
@@ -1285,7 +1302,7 @@ Future<void> handleCli(List<String> args) async {
       int amount;
       int expirationTime;
       late Hash hashLock;
-      int hashLockLength = 32;
+      int keyMaxSize = htlcPreimageMinLength;
       int hashType = 0;
       late List<int> preimage;
 
@@ -1370,7 +1387,7 @@ Future<void> handleCli(List<String> args) async {
           break;
         }
       } else {
-        preimage = generatePreimage();
+        preimage = generatePreimage(keyMaxSize);
         switch (hashType) {
           case 0:
             hashLock = Hash.digest(preimage);
@@ -1380,7 +1397,7 @@ Future<void> handleCli(List<String> args) async {
             break;
           default:
             print(
-                '${red("Error!")} Invalid hash type. Value ${hashType} not supported.');
+                '${red("Error!")} Invalid hash type. Value $hashType not supported.');
             ok = false;
             break;
         }
@@ -1397,7 +1414,7 @@ Future<void> handleCli(List<String> args) async {
       if (expirationTime < htlcTimelockMinSec ||
           expirationTime > htlcTimelockMaxSec) {
         print(
-            '${red("Error!")} expirationTime (seconds) must be at least ${htlcTimelockMinSec} and at most ${htlcTimelockMaxSec}.');
+            '${red("Error!")} expirationTime (seconds) must be at least $htlcTimelockMinSec and at most $htlcTimelockMaxSec.');
         break;
       }
 
@@ -1416,7 +1433,7 @@ Future<void> handleCli(List<String> args) async {
       }
       print('  Can be reclaimed in ${format(duration)} by ${address}');
       print(
-          '  Can be unlocked by ${hashLockedAddress} with hashlock ${hashLock} hashtype ${hashType}');
+          '  Can be unlocked by $hashLockedAddress with hashlock $hashLock hashtype ${hashType}');
 
       await znnClient.send(znnClient.embedded.htlc.create(
           token,
@@ -1424,7 +1441,7 @@ Future<void> handleCli(List<String> args) async {
           hashLockedAddress,
           expirationTime,
           hashType,
-          hashLockLength,
+          keyMaxSize,
           hashLock.getBytes()));
 
       print('Done');
@@ -1627,9 +1644,9 @@ Future<void> handleCli(List<String> args) async {
       break;
 
     case ('htlc.unlock'):
-      if (args.length < 2 || args.length > 4) {
+      if (args.length < 2 || args.length > 3) {
         print('Incorrect number of arguments. Expected:');
-        print('htlc.unlock id [preimage hashType]');
+        print('htlc.unlock id [preimage]');
         break;
       }
 
@@ -1637,7 +1654,6 @@ Future<void> handleCli(List<String> args) async {
       String preimage = "";
       late Hash preimageCheck;
       int hashType = 0;
-      late String hashTypeInput;
       int currentTime =
           ((DateTime.now().millisecondsSinceEpoch) / 1000).floor();
 
@@ -1651,6 +1667,7 @@ Future<void> handleCli(List<String> args) async {
       HtlcInfo htlc;
       try {
         htlc = await znnClient.embedded.htlc.getHtlcInfoById(id);
+        hashType = htlc.hashType;
       } catch (e) {
         print('${red("Error!")} The htlc id ${id} does not exist');
         break;
@@ -1669,32 +1686,8 @@ Future<void> handleCli(List<String> args) async {
         stdin.echoMode = false;
         preimage = stdin.readLineSync()!;
         stdin.echoMode = true;
-        print("Insert hash type (default=0):");
-        hashTypeInput = stdin.readLineSync()!;
-        if (hashTypeInput.isEmpty) {
-          hashTypeInput = "0";
-        }
       } else if (args.length == 3) {
         preimage = args[2];
-        hashTypeInput = "0";
-      } else if (args.length == 4) {
-        preimage = args[2];
-        hashTypeInput = args[3];
-      }
-
-      try {
-        hashType = hashTypeInput.toNum().toInt();
-        if (hashType > 1) {
-          print(
-              '${red("Error!")} Invalid hash type. Value $hashType not supported.');
-          break;
-        }
-      } catch (e) {
-        print('${red("Error!")} hash type must be an integer.');
-        print('Supported hash types:');
-        print('  0: SHA3-256');
-        print('  1: SHA2-256');
-        break;
       }
 
       if (preimage.isEmpty) {
@@ -1704,6 +1697,7 @@ Future<void> handleCli(List<String> args) async {
 
       switch (hashType) {
         case 1:
+          print("HashType 1 detected. Encoding preimage to SHA-256...");
           preimageCheck =
               Hash.fromBytes(await Crypto.sha256Bytes(hex.decode(preimage)));
           break;
@@ -2156,8 +2150,7 @@ Future<bool> monitorAsync(
   return true;
 }
 
-List<int> generatePreimage() {
-  const length = 32;
+List<int> generatePreimage([int length = htlcPreimageMinLength]) {
   const maxInt = 256;
   return List<int>.generate(length, (i) => Random.secure().nextInt(maxInt));
 }

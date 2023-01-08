@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:dcli/dcli.dart';
-import 'package:logging/logging.dart';
+import 'package:logging/logging.dart' as log;
 import 'package:path/path.dart' as path;
 import 'package:znn_sdk_dart/znn_sdk_dart.dart';
 
@@ -31,7 +31,7 @@ void help() {
   print('    unconfirmed');
   print('    balance');
   print('    frontierMomentum');
-  print('    createHash "string" [hashType]');
+  print('    createHash "string" [hashType keyMaxSize]');
   print('    version');
   print('  Plasma');
   print('    plasma.list [pageIndex pageCount]');
@@ -82,7 +82,7 @@ void help() {
   print('    spork.activate id');
   print('  HTLC');
   print('    htlc.create hashLockedAddress tokenStandard amount expirationTime [hashLock hashType]');
-  print('    htlc.unlock id [preimage hashType]');
+  print('    htlc.unlock id [preimage]');
   print('    htlc.reclaim id');
   print('    htlc.reclaimAll');
   print('    htlc.get id');
@@ -134,6 +134,7 @@ Future<int> initZnn(List<String> args, Function handler) async {
   }
 
   if (argResult.wasParsed('verbose')) {
+    log.hierarchicalLoggingEnabled = true;
     logger.level = Level.INFO;
   }
 
