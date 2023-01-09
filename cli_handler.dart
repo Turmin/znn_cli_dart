@@ -1234,14 +1234,14 @@ Future<void> handleCli(List<String> args) async {
     case 'createHash':
       if (args.length > 3) {
         print('Incorrect number of arguments. Expected:');
-        print('createHash [hashType keyMaxSize]');
+        print('createHash [hashType preimageLength]');
         break;
       }
 
       Hash hash;
       int hashType = 0;
       final List<int> preimage;
-      int keyMaxSize = htlcPreimageMinLength;
+      int preimageLength = htlcPreimageDefaultLength;
 
       if (args.length >= 2) {
         try {
@@ -1262,19 +1262,22 @@ Future<void> handleCli(List<String> args) async {
 
       if (args.length == 3) {
         try {
-          keyMaxSize = args[2].toNum().toInt();
+          preimageLength = args[2].toNum().toInt();
         } catch (e) {
-          print('${red("Error!")} keyMaxSize must be an integer.');
+          print('${red("Error!")} preimageLength must be an integer.');
           break;
         }
       }
 
-      if (keyMaxSize > htlcPreimageMaxLength && keyMaxSize < 1) {
+      if (preimageLength > htlcPreimageMaxLength || preimageLength < htlcPreimageMinLength) {
         print(
-            '${red("Error!")} Invalid keyMaxSize. Preimage must be $htlcPreimageMaxLength bytes or less.');
+            '${red("Error!")} Invalid preimageLength. Preimage must be $htlcPreimageMaxLength bytes or less.');
         break;
       }
-      preimage = generatePreimage(keyMaxSize);
+      if (preimageLength < htlcPreimageDefaultLength) {
+        print('${yellow("Warning!")} preimageLength is less than $htlcPreimageDefaultLength and may be insecure');
+      }
+      preimage = generatePreimage(preimageLength);
       print('Preimage: ${hex.encode(preimage)}');
 
       switch (hashType) {
@@ -1302,7 +1305,7 @@ Future<void> handleCli(List<String> args) async {
       int amount;
       int expirationTime;
       late Hash hashLock;
-      int keyMaxSize = htlcPreimageMinLength;
+      int keyMaxSize = htlcPreimageMaxLength;
       int hashType = 0;
       late List<int> preimage;
 
@@ -1387,7 +1390,7 @@ Future<void> handleCli(List<String> args) async {
           break;
         }
       } else {
-        preimage = generatePreimage(keyMaxSize);
+        preimage = generatePreimage(htlcPreimageDefaultLength);
         switch (hashType) {
           case 0:
             hashLock = Hash.digest(preimage);
@@ -2150,7 +2153,7 @@ Future<bool> monitorAsync(
   return true;
 }
 
-List<int> generatePreimage([int length = htlcPreimageMinLength]) {
+List<int> generatePreimage([int length = htlcPreimageDefaultLength]) {
   const maxInt = 256;
   return List<int>.generate(length, (i) => Random.secure().nextInt(maxInt));
 }

@@ -31,7 +31,7 @@ void help() {
   print('    unconfirmed');
   print('    balance');
   print('    frontierMomentum');
-  print('    createHash "string" [hashType keyMaxSize]');
+  print('    createHash "string" [hashType preimageLength]');
   print('    version');
   print('  Plasma');
   print('    plasma.list [pageIndex pageCount]');
