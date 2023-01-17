@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:dcli/dcli.dart';
@@ -8,6 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:znn_sdk_dart/znn_sdk_dart.dart';
 
 import 'init_znn.dart';
+import 'libsodium/sodium.dart';
 
 Future<int> main(List<String> args) async {
   return initZnn(args, handleCli);
@@ -1150,6 +1152,49 @@ Future<void> handleCli(List<String> args) async {
       for (int i = 0; i < right - left; i += 1) {
         print('  ${i + left}\t${addresses[i].toString()}');
       }
+      break;
+
+    case 'sendEncryptedMessage':
+      if (args.length != 3) {
+        print('Incorrect number of arguments. Expected:');
+        print('sendEncryptedMessage toAddress message');
+        break;
+      }
+      Address toAddress = Address.parse(args[1]);
+      final frontier =
+          await znnClient.ledger.getFrontierAccountBlock(toAddress);
+      if (frontier == null) {
+        print(
+            'Can\'t fetch recipient public key because the recipient\'s account chain is empty.');
+        break;
+      }
+
+      final x25519pk = Sodium().cryptoSignEd25519PkToCurve25519(
+          Uint8List.fromList(frontier.publicKey));
+      final seal = Sodium()
+          .cryptoBoxSeal(Uint8List.fromList(utf8.encode(args[2])), x25519pk)
+          .toList();
+
+      final block = AccountBlockTemplate.send(
+          toAddress, TokenStandard.parse(emptyTokenStandard), 0);
+      block.data = seal;
+      print('Sending encrypted message to ${args[1]}');
+      await znnClient.send(block);
+      break;
+
+    case 'decryptMessage':
+      if (args.length != 2) {
+        print('Incorrect number of arguments. Expected:');
+        print('decryptMessage encryptedMessage');
+        break;
+      }
+      final x25519pk = Sodium().cryptoSignEd25519PkToCurve25519(
+          Uint8List.fromList(znnClient.defaultKeyPair!.publicKey!));
+      final x25519sk = Sodium().cryptoSignEd25519SkToCurve25519(
+          Uint8List.fromList(znnClient.defaultKeyPair!.privateKey!));
+      print(utf8.decode(Sodium()
+          .cryptoBoxSealOpen(base64Decode(args[1]), x25519pk, x25519sk)
+          .toList()));
       break;
 
     default:

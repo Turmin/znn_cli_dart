@@ -32,6 +32,8 @@ void help() {
   print('    balance');
   print('    frontierMomentum');
   print('    version');
+  print('    sendEncryptedMessage toAddress message');
+  print('    decryptMessage encryptedMessage');
   print('  Plasma');
   print('    plasma.list [pageIndex pageCount]');
   print('    plasma.get');
@@ -158,6 +160,8 @@ Future<int> initZnn(List<String> args, Function handler) async {
     'wallet.dumpMnemonic',
     'wallet.deriveAddresses',
     'wallet.export',
+    'sendEncryptedMessage',
+    'decryptMessage'
   ];
 
   List<String> commandsWithoutKeyStore = [
