@@ -52,10 +52,14 @@ void help() {
   print('    pillar.list');
   print(
       '    pillar.register name producerAddress rewardAddress giveBlockRewardPercentage giveDelegateRewardPercentage');
+  print(
+      '    pillar.registerLegacy name producerAddress rewardAddress giveBlockRewardPercentage giveDelegateRewardPercentage legacyPillarPubKey legacyPillarSignature');
   print('    pillar.revoke name');
   print('    pillar.delegate name');
   print('    pillar.undelegate');
   print('    pillar.collect');
+  print('    pillar.depositQsr amount');
+  print('    pillar.getDepositedQsr');
   print('    pillar.withdrawQsr');
   print('  ZTS Tokens');
   print('    token.list [pageIndex pageCount]');
@@ -145,10 +149,13 @@ Future<int> initZnn(List<String> args, Function handler) async {
     'stake.revoke',
     'stake.collect',
     'pillar.register',
+    'pillar.registerLegacy',
     'pillar.revoke',
     'pillar.delegate',
     'pillar.undelegate',
     'pillar.collect',
+    'pillar.depositQsr',
+    'pillar.getDepositedQsr',
     'pillar.withdrawQsr',
     'token.issue',
     'token.mint',
