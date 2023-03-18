@@ -688,9 +688,9 @@ Future<void> handleCli(List<String> args) async {
       final giveBlockRewardPercentage = int.parse(args[4]);
       final giveDelegateRewardPercentage = int.parse(args[5]);
 
-      if (giveBlockRewardPercentage <= 0 ||
+      if (giveBlockRewardPercentage < 0 ||
           giveBlockRewardPercentage > 100 ||
-          giveDelegateRewardPercentage <= 0 ||
+          giveDelegateRewardPercentage < 0 ||
           giveDelegateRewardPercentage > 100) {
         print('Invalid reward percentages');
         break;
@@ -721,10 +721,6 @@ Future<void> handleCli(List<String> args) async {
         break;
       }
 
-      print(
-          'Creating a new ${green('Pillar')} will burn the deposited ${blue('QSR')} required for the legacy Pillar slot');
-      if (!confirm('Do you want to proceed?', defaultValue: false)) break;
-
       String newName = args[1];
       bool ok =
           (await znnClient.embedded.pillar.checkNameAvailability(newName));
@@ -733,6 +729,19 @@ Future<void> handleCli(List<String> args) async {
             'This Pillar name is already reserved. Please choose another name for the Pillar');
         ok = (await znnClient.embedded.pillar.checkNameAvailability(newName));
       }
+
+      print(
+          'Creating a new ${green('Pillar')} will burn the deposited ${blue('QSR')} required for the legacy Pillar slot\n');
+      print('Pillar name: $newName');
+      print('Pillar address: ${address.toString()}');
+      print('Producer address: ${args[2]}');
+      print('Reward address: ${args[3]}');
+      print('Give block reward percentage: $giveBlockRewardPercentage%');
+      print(
+          'Give delegate reward percentage: $giveDelegateRewardPercentage%\n');
+
+      if (!confirm('Do you want to proceed?', defaultValue: false)) break;
+
       print('Registering legacy Pillar ...');
       await znnClient.send(znnClient.embedded.pillar.registerLegacy(
           newName,
