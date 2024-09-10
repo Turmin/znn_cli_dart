@@ -30,6 +30,8 @@ jobs:
               sdk: 2.19
           - name: Install dependencies
             run: dart pub get
+          - name: Install dependencies
+            run: dart pub upgrade
           - name: Build znn-cli
             run: dart compile exe cli_handler.dart -o ${{ matrix.output-name }}
           - name: Upload artifacts
