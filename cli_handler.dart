@@ -1179,6 +1179,7 @@ Future<void> handleCli(List<String> args) async {
           toAddress, TokenStandard.parse(emptyTokenStandard), 0);
       block.data = seal;
       print('Sending encrypted message to ${args[1]}');
+      print('Data size: ${block.data.length}');
       await znnClient.send(block);
       break;
 
