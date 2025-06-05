@@ -25,7 +25,7 @@ A command-line interface for interacting with the Zenon Network (Network of Mome
 
 1.  **Clone the Repository**:
     ```bash
-    git clone https://github.com/zenon-network/znn_cli_dart.git # Replace with actual URL if different
+    git clone https://github.com/Turmin/znn_cli_dart.git
     cd znn_cli_dart
     ```
 
@@ -98,7 +98,7 @@ The general syntax is:
 `./build/znn-cli [GLOBAL_OPTIONS] <COMMAND> [COMMAND_OPTIONS]`
 
 ### Global Options
-*   `--url <node_url>`: Specify the Zenon node WebSocket URL (e.g., `ws://127.0.0.1:35997` or the user-provided `https://zenon.turmin.com:35997`). Defaults to `ws://127.0.0.1:35997`.
+*   `--url <node_url>`: Specify the Zenon node WebSocket URL (e.g., `ws://127.0.0.1:35997`). Defaults to `ws://127.0.0.1:35997`.
 *   `--keyStore <keystore_filename.json>`: Specify the keyStore file to use (located in the default Zenon wallet directory).
 *   `--passphrase <passphrase>`: Provide the passphrase for the keyStore. If not provided, you'll be prompted securely.
 *   `--index <address_index>`: Specify the address index within the keyStore. Defaults to 0.
