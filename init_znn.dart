@@ -32,8 +32,8 @@ void help() {
   print('    balance');
   print('    frontierMomentum');
   print('    version');
-  print('    sendEncryptedMessage toAddress message');
-  print('    decryptMessage encryptedMessage');
+  print('    sendEncryptedMessage --to <toAddress> --message <message> [--mnemonic "mnemonic phrase"]');
+  print('    decryptMessage --message <encryptedMessage> [--mnemonic "mnemonic phrase"]');
   print('  Plasma');
   print('    plasma.list [pageIndex pageCount]');
   print('    plasma.get');
