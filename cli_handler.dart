@@ -54,8 +54,9 @@ Future<int> main(List<String> args) async {
   return initZnn(args, handleCli);
 }
 
-Future<void> handleCli(List<String> args) async {
-  final Zenon znnClient = Zenon();
+// Modified to accept Zenon instance
+Future<void> handleCli(List<String> args, Zenon znnClient) async {
+  // final Zenon znnClient = Zenon(); // Instance is now passed as a parameter
   Address? address = (await znnClient.defaultKeyPair?.address);
 
   final parser = ArgParser(allowTrailingOptions: true);
